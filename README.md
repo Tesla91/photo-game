@@ -103,28 +103,9 @@ The migration creates:
 - Realtime publication on all five tables
 - `cleanup_expired_rooms()` scheduled daily at 04:00 UTC via pg_cron
 
-### 4. Create the storage bucket
+### 4. Storage bucket
 
-Storage → New bucket:
-
-- **Name:** `room-photos`
-- **Public bucket:** yes (photo UUIDs are unguessable, and all objects auto-delete with their room)
-
-Then under Policies for the `room-photos` bucket, add two policies:
-
-```sql
--- public read
-create policy "anon read room-photos"
-  on storage.objects for select
-  using (bucket_id = 'room-photos');
-
--- anon upload
-create policy "anon write room-photos"
-  on storage.objects for insert to anon
-  with check (bucket_id = 'room-photos');
-```
-
-(These can also be created via the Storage UI; pick "For full customization" and paste the policy bodies.)
+Created automatically by the migration in `supabase/migrations/20260514020000_storage_bucket.sql` — the `room-photos` bucket is public with a 10 MB per-file cap and the anon-read / anon-write policies the upload flow needs. No dashboard click required.
 
 ### 5. (Optional) Sanity-check the schema
 
