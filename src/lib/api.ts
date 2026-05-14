@@ -98,6 +98,16 @@ export async function addPhoto(
   return data as string;
 }
 
+export async function listPhotosForRoom(roomId: string): Promise<Photo[]> {
+  const { data, error } = await supabase
+    .from('photos')
+    .select('id, room_id, uploader_id, storage_path, play_order, revealed, created_at')
+    .eq('room_id', roomId)
+    .order('created_at', { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Photo[];
+}
+
 export async function listPhotosForUploader(uploaderId: string): Promise<Photo[]> {
   const { data, error } = await supabase
     .from('photos')
