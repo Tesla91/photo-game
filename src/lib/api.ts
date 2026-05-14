@@ -164,3 +164,49 @@ export function getPhotoPublicUrl(storagePath: string): string {
   return supabase.storage.from('room-photos').getPublicUrl(storagePath).data
     .publicUrl;
 }
+
+// ---------- Admin / recovery ----------------------------------------------
+
+export type AdminRoom = {
+  id: string;
+  code: string;
+  state: RoomState;
+  photos_per_player: number;
+  host_message: string | null;
+  uploader_count: number;
+  photo_count: number;
+  created_at: string;
+  expires_at: string;
+  host_token: string;
+};
+
+export async function adminListRooms(adminToken: string): Promise<AdminRoom[]> {
+  const { data, error } = await supabase.rpc('admin_list_rooms', {
+    p_admin_token: adminToken,
+  });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as AdminRoom[];
+}
+
+export async function adminDeleteRoom(
+  adminToken: string,
+  roomId: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('admin_delete_room', {
+    p_admin_token: adminToken,
+    p_room_id: roomId,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function verifyHostToken(
+  roomCode: string,
+  hostToken: string,
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc('verify_host_token', {
+    p_room_code: roomCode.toUpperCase(),
+    p_host_token: hostToken,
+  });
+  if (error) throw new Error(error.message);
+  return data as boolean;
+}

@@ -140,6 +140,50 @@ export function HostDashboard() {
         </div>
       )}
 
+      {hostToken && (
+        <details className="rounded-lg bg-slate-900 border border-slate-800 group">
+          <summary className="cursor-pointer px-4 py-3 text-sm text-slate-300 list-none flex items-center justify-between">
+            <span>Re-host on another device</span>
+            <span className="text-slate-500 text-xs group-open:hidden">show</span>
+            <span className="text-slate-500 text-xs hidden group-open:inline">hide</span>
+          </summary>
+          <div className="border-t border-slate-800 px-4 py-3 space-y-3 text-sm">
+            <p className="text-slate-400">
+              Save these somewhere safe. Paste them at{' '}
+              <code className="text-slate-300">/host/rejoin</code> on another
+              device or browser to resume hosting this room.
+            </p>
+            <div className="space-y-1">
+              <div className="text-xs uppercase tracking-wider text-slate-500">
+                Code
+              </div>
+              <div className="font-mono">{code}</div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-xs uppercase tracking-wider text-slate-500">
+                Host token
+              </div>
+              <div className="flex gap-2">
+                <input
+                  readOnly
+                  type="text"
+                  value={hostToken}
+                  onFocus={(e) => e.target.select()}
+                  className="flex-1 rounded-md bg-slate-950 border border-slate-800 px-2 py-1.5 font-mono text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard?.writeText(hostToken)}
+                  className="rounded-md bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs transition-colors"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+          </div>
+        </details>
+      )}
+
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Share this link</h2>
         <div className="flex gap-2">

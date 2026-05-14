@@ -117,6 +117,22 @@ select * from public.create_room(3);  -- create a test room
 
 It should return one row with a 5-character `code` and a long `host_token`. Now you're ready to wire up the app (commit 4 onward).
 
+### Admin page
+
+The `/admin` route lets you list every room with its photo/uploader counts, expiry, and host token, and delete a room (including its photos in storage). It's gated by a single admin token that the migration generates on first run. Find it once via:
+
+```sql
+select admin_token from public.admin_config;
+```
+
+Then paste it into the form at `/admin`. Rotate the token anytime with:
+
+```sql
+update public.admin_config set admin_token = '<your-new-token>' where id = 1;
+```
+
+The route isn't linked from the main UI — bookmark `/<base>/#/admin`.
+
 ### Note on cleanup
 
 `cleanup_expired_rooms()` deletes expired room rows; cascades handle uploaders/photos/players/guesses. **Storage objects are not yet cleaned up by this function** — that's added in commit 12 via a Supabase Edge Function. Until then, expired Storage objects will linger but the free-tier ceiling is plenty for friend-group volumes.
