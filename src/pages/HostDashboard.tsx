@@ -58,6 +58,8 @@ export function HostDashboard() {
             setUploaders((prev) => sortByCreatedAt(mergeById(prev, [u]))),
           onPhotoAdded: (p) =>
             setPhotos((prev) => sortByCreatedAt(mergeById(prev, [p]))),
+          onPhotoRemoved: (id) =>
+            setPhotos((prev) => prev.filter((p) => p.id !== id)),
         });
 
         const [u, p] = await Promise.all([

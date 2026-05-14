@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router-dom';
 import {
   addPhoto,
   addUploader,
+  deletePhoto,
+  deleteStorageObject,
   getPhotoPublicUrl,
   getRoomByCode,
   listPhotosForUploader,
@@ -12,7 +14,9 @@ import {
 } from '../lib/api';
 import {
   getUploaderIdentity,
+  isUploadConfirmed,
   setUploaderIdentity,
+  setUploadConfirmed,
 } from '../lib/identity';
 import { getToken, setToken } from '../lib/tokens';
 import { resizeImage } from '../lib/resize';
@@ -36,6 +40,8 @@ export function Upload() {
   const [nameInput, setNameInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busySlots, setBusySlots] = useState<Set<number>>(new Set());
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmed, setConfirmed] = useState<boolean>(false);
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -60,6 +66,7 @@ export function Upload() {
       setIdentityName(identity.name);
       const ph = await listPhotosForUploader(identity.uploaderId);
       setPhotos(ph);
+      setConfirmed(isUploadConfirmed(code));
       setStatus('ready');
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -109,6 +116,9 @@ export function Upload() {
       await addPhoto(code, token, storagePath);
       const ph = await listPhotosForUploader(identity.uploaderId);
       setPhotos(ph);
+      // Adding a photo invalidates a prior confirmation — re-review needed.
+      setUploadConfirmed(code, false);
+      setConfirmed(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -120,12 +130,54 @@ export function Upload() {
     }
   };
 
+  const handleDelete = async (photo: Photo) => {
+    const token = getToken('upload', code);
+    if (!token) {
+      setError('Your upload session has expired. Refresh and re-enter your name.');
+      return;
+    }
+    setDeletingId(photo.id);
+    setError(null);
+    // Optimistic
+    setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+    setUploadConfirmed(code, false);
+    setConfirmed(false);
+    try {
+      await deletePhoto(code, token, photo.id);
+      await deleteStorageObject(photo.storage_path);
+    } catch (err) {
+      // Revert by refetching
+      const identity = getUploaderIdentity(code);
+      if (identity) {
+        try {
+          const ph = await listPhotosForUploader(identity.uploaderId);
+          setPhotos(ph);
+        } catch {
+          // ignore
+        }
+      }
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const onFileChange =
     (slotIndex: number) => (e: ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       e.target.value = '';
       if (file) handleFile(slotIndex, file);
     };
+
+  const onConfirm = () => {
+    setUploadConfirmed(code, true);
+    setConfirmed(true);
+  };
+
+  const onMakeChanges = () => {
+    setUploadConfirmed(code, false);
+    setConfirmed(false);
+  };
 
   if (status === 'loading') {
     return <main className="p-6 text-slate-400">Loading…</main>;
@@ -220,8 +272,46 @@ export function Upload() {
     );
   }
 
+  // Thanks view — confirmed and at full capacity.
+  if (confirmed && photos.length === room.photos_per_player) {
+    return (
+      <main className="min-h-screen flex items-center justify-center p-6">
+        <div className="w-full max-w-md text-center space-y-6">
+          <div className="space-y-2">
+            <p className="text-sm text-slate-500 uppercase tracking-wider">
+              Room {code}
+            </p>
+            <h1 className="text-3xl font-bold">Thanks, {identityName}!</h1>
+            <p className="text-slate-300">
+              All {room.photos_per_player} of your photos are in.
+            </p>
+          </div>
+
+          {room.host_message && (
+            <div className="rounded-lg bg-slate-900 border border-slate-800 p-4 text-slate-200 whitespace-pre-wrap text-left">
+              {room.host_message}
+            </div>
+          )}
+
+          <p className="text-sm text-slate-500">
+            See you at the game.
+          </p>
+
+          <button
+            type="button"
+            onClick={onMakeChanges}
+            className="text-sm text-indigo-400 hover:text-indigo-300"
+          >
+            I want to change a photo
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  // Upload / review view
   const slots = Array.from({ length: room.photos_per_player }, (_, i) => i);
-  const remaining = room.photos_per_player - photos.length;
+  const allFilled = photos.length === room.photos_per_player;
 
   return (
     <main className="min-h-screen p-6 max-w-2xl mx-auto space-y-8">
@@ -232,6 +322,7 @@ export function Upload() {
         <h1 className="text-2xl font-bold">Uploading as {identityName}</h1>
         <p className="text-slate-400">
           {photos.length} of {room.photos_per_player} uploaded
+          {allFilled ? ' — review and confirm below' : ''}
         </p>
       </header>
 
@@ -240,16 +331,31 @@ export function Upload() {
           const photo = photos[i];
           const busy = busySlots.has(i);
           if (photo) {
+            const isDeleting = deletingId === photo.id;
             return (
               <div
-                key={i}
-                className="aspect-square rounded-lg overflow-hidden bg-slate-900 border border-slate-800"
+                key={photo.id}
+                className="relative aspect-square rounded-lg overflow-hidden bg-slate-900 border border-slate-800 group"
               >
                 <img
                   src={getPhotoPublicUrl(photo.storage_path)}
                   alt=""
-                  className="w-full h-full object-cover"
+                  className={
+                    isDeleting
+                      ? 'w-full h-full object-cover opacity-40'
+                      : 'w-full h-full object-cover'
+                  }
                 />
+                <button
+                  type="button"
+                  onClick={() => handleDelete(photo)}
+                  disabled={isDeleting}
+                  className="absolute top-2 right-2 rounded-full bg-slate-950/80 hover:bg-red-600 text-white w-7 h-7 flex items-center justify-center text-sm leading-none disabled:opacity-40 disabled:cursor-wait transition-colors"
+                  aria-label="Remove photo"
+                  title="Remove photo"
+                >
+                  ✕
+                </button>
               </div>
             );
           }
@@ -282,10 +388,24 @@ export function Upload() {
         </div>
       )}
 
-      {remaining === 0 && (
-        <div className="rounded-lg bg-emerald-900/30 border border-emerald-700/60 p-4 text-sm text-emerald-200 text-center">
-          All your photos are in. Wait for the host to start the game.
+      {allFilled ? (
+        <div className="space-y-3">
+          <p className="text-center text-sm text-slate-400">
+            Happy with these? Tap a photo's ✕ to swap one out.
+          </p>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="w-full rounded-lg bg-indigo-500 hover:bg-indigo-400 py-3 font-semibold transition-colors"
+          >
+            Confirm upload
+          </button>
         </div>
+      ) : (
+        <p className="text-center text-sm text-slate-500">
+          Add {room.photos_per_player - photos.length} more
+          {photos.length > 0 ? ' to finish' : ''}.
+        </p>
       )}
     </main>
   );

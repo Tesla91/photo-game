@@ -33,3 +33,15 @@ export function setUploaderIdentity(code: string, value: UploaderIdentity): void
 export function clearUploaderIdentity(code: string): void {
   localStorage.removeItem(uploaderKey(code));
 }
+
+const confirmedKey = (code: string): string =>
+  `photo-game:upload-confirmed:${code.toUpperCase()}`;
+
+export function isUploadConfirmed(code: string): boolean {
+  return localStorage.getItem(confirmedKey(code)) === '1';
+}
+
+export function setUploadConfirmed(code: string, confirmed: boolean): void {
+  if (confirmed) localStorage.setItem(confirmedKey(code), '1');
+  else localStorage.removeItem(confirmedKey(code));
+}

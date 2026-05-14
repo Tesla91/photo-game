@@ -8,6 +8,7 @@ export type Room = {
   photos_per_player: number;
   state: RoomState;
   current_photo_id: string | null;
+  host_message: string | null;
   created_at: string;
   expires_at: string;
 };
@@ -25,9 +26,13 @@ export type CreateRoomResult = {
   host_token: string;
 };
 
-export async function createRoom(photosPerPlayer: number): Promise<CreateRoomResult> {
+export async function createRoom(
+  photosPerPlayer: number,
+  hostMessage?: string,
+): Promise<CreateRoomResult> {
   const { data, error } = await supabase.rpc('create_room', {
     p_photos_per_player: photosPerPlayer,
+    p_host_message: hostMessage?.trim() || null,
   });
   if (error) throw new Error(error.message);
   const row = (data as CreateRoomResult[] | null)?.[0];
@@ -38,7 +43,9 @@ export async function createRoom(photosPerPlayer: number): Promise<CreateRoomRes
 export async function getRoomByCode(code: string): Promise<Room | null> {
   const { data, error } = await supabase
     .from('rooms')
-    .select('id, code, photos_per_player, state, current_photo_id, created_at, expires_at')
+    .select(
+      'id, code, photos_per_player, state, current_photo_id, host_message, created_at, expires_at',
+    )
     .eq('code', code.toUpperCase())
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -131,6 +138,26 @@ export async function uploadFileToStorage(
     });
   if (error) throw new Error(error.message);
   return storagePath;
+}
+
+export async function deletePhoto(
+  roomCode: string,
+  uploadToken: string,
+  photoId: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('delete_photo', {
+    p_room_code: roomCode.toUpperCase(),
+    p_upload_token: uploadToken,
+    p_photo_id: photoId,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteStorageObject(storagePath: string): Promise<void> {
+  const { error } = await supabase.storage
+    .from('room-photos')
+    .remove([storagePath]);
+  if (error) throw new Error(error.message);
 }
 
 export function getPhotoPublicUrl(storagePath: string): string {
