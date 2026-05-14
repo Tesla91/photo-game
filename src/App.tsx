@@ -4,6 +4,7 @@ import { HostDashboard } from './pages/HostDashboard';
 import { HostNew } from './pages/HostNew';
 import { HostRejoin } from './pages/HostRejoin';
 import { Landing } from './pages/Landing';
+import { Play } from './pages/Play';
 import { Upload } from './pages/Upload';
 
 export function App() {
@@ -15,6 +16,7 @@ export function App() {
         <Route path="/host/rejoin" element={<HostRejoin />} />
         <Route path="/host/:code" element={<HostDashboard />} />
         <Route path="/r/:code" element={<Upload />} />
+        <Route path="/play/:code" element={<Play />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<Landing />} />
       </Routes>
