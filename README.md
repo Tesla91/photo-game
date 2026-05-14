@@ -19,11 +19,14 @@ Hosted free on **GitHub Pages** + **Supabase** (free tier). Photos and game stat
 ## Local development
 
 ```bash
+cp .env.example .env   # then fill in VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY
 npm install
 npm run dev
 ```
 
 Then open the URL Vite prints. The app is served under `/photo-game/` to match the GitHub Pages base path.
+
+`.env` is gitignored — never commit credentials. The two values you need are in **Supabase Dashboard → Project Settings → API** (Project URL + anon/public key). Both are safe to ship to browsers; RLS controls real access.
 
 ## Build
 
