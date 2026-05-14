@@ -135,4 +135,15 @@ The route isn't linked from the main UI — bookmark `/<base>/#/admin`.
 
 ### Note on cleanup
 
-`cleanup_expired_rooms()` deletes expired room rows; cascades handle uploaders/photos/players/guesses. **Storage objects are not yet cleaned up by this function** — that's added in commit 12 via a Supabase Edge Function. Until then, expired Storage objects will linger but the free-tier ceiling is plenty for friend-group volumes.
+`cleanup_expired_rooms()` runs daily at 04:00 UTC via pg_cron and:
+
+1. Deletes the matching rows from `storage.objects` under `room-photos/{room_id}/*` — Supabase's storage hook fires and drops the underlying JPEGs from object storage.
+2. Deletes the `rooms` rows — cascades clean up `uploaders`, `photos`, `players`, and `guesses`.
+
+To trigger it manually (handy for testing or one-off purges) run in the SQL editor:
+
+```sql
+select public.cleanup_expired_rooms();
+```
+
+No edge function is required — the whole flow happens inside Postgres.
