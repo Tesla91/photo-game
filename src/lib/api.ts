@@ -219,6 +219,59 @@ export async function joinAsPlayer(
   return row;
 }
 
+export type Player = {
+  id: string;
+  room_id: string;
+  uploader_id: string;
+  joined_at: string;
+};
+
+export type Guess = {
+  id: string;
+  room_id: string;
+  photo_id: string;
+  player_id: string;
+  guessed_uploader_id: string;
+  is_correct: boolean;
+  submitted_at: string;
+};
+
+export async function listPlayersForRoom(roomId: string): Promise<Player[]> {
+  const { data, error } = await supabase
+    .from('players')
+    .select('id, room_id, uploader_id, joined_at')
+    .eq('room_id', roomId)
+    .order('joined_at', { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Player[];
+}
+
+export async function listGuessesForRoom(roomId: string): Promise<Guess[]> {
+  const { data, error } = await supabase
+    .from('guesses')
+    .select(
+      'id, room_id, photo_id, player_id, guessed_uploader_id, is_correct, submitted_at',
+    )
+    .eq('room_id', roomId);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Guess[];
+}
+
+export async function submitGuess(
+  roomCode: string,
+  sessionToken: string,
+  photoId: string,
+  guessedUploaderId: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('submit_guess', {
+    p_room_code: roomCode.toUpperCase(),
+    p_session_token: sessionToken,
+    p_photo_id: photoId,
+    p_guessed_uploader_id: guessedUploaderId,
+  });
+  if (error) throw new Error(error.message);
+}
+
 // ---------- Admin / recovery ----------------------------------------------
 
 export type AdminRoom = {

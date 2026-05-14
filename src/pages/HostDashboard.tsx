@@ -1,19 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { Leaderboard } from '../components/Leaderboard';
 import { QrCode } from '../components/QrCode';
 import {
   getPhotoPublicUrl,
   getRoomByCode,
+  listGuessesForRoom,
   listPhotosForRoom,
+  listPlayersForRoom,
   listUploaders,
   nextPhoto,
   revealCurrentPhoto,
   startGame,
+  type Guess,
   type Photo,
+  type Player,
   type Room,
   type Uploader,
 } from '../lib/api';
-import { subscribeRoomUploads } from '../lib/realtime';
+import { subscribePlayerRoom, subscribeRoomUploads } from '../lib/realtime';
 import { getToken } from '../lib/tokens';
 
 type Status = 'loading' | 'ready' | 'not_found' | 'error';
@@ -36,6 +41,8 @@ export function HostDashboard() {
   const [room, setRoom] = useState<Room | null>(null);
   const [uploaders, setUploaders] = useState<Uploader[]>([]);
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [guesses, setGuesses] = useState<Guess[]>([]);
   const [status, setStatus] = useState<Status>('loading');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<'start' | 'reveal' | 'next' | null>(null);
@@ -56,7 +63,7 @@ export function HostDashboard() {
         }
         setRoom(r);
 
-        cleanup = subscribeRoomUploads(r.id, {
+        const cleanupUploads = subscribeRoomUploads(r.id, {
           onUploaderAdded: (u) =>
             setUploaders((prev) => sortByCreatedAt(mergeById(prev, [u]))),
           onPhotoAdded: (p) =>
@@ -65,13 +72,39 @@ export function HostDashboard() {
             setPhotos((prev) => prev.filter((p) => p.id !== id)),
         });
 
-        const [u, p] = await Promise.all([
+        const cleanupLive = subscribePlayerRoom(r.id, {
+          onRoomChanged: ({ state, current_photo_id }) =>
+            setRoom((prev) =>
+              prev ? { ...prev, state, current_photo_id } : prev,
+            ),
+          onPhotoUpdated: (p) =>
+            setPhotos((prev) => prev.map((x) => (x.id === p.id ? p : x))),
+          onGuessAdded: (g) =>
+            setGuesses((prev) =>
+              prev.some((x) => x.id === g.id) ? prev : [...prev, g],
+            ),
+          onPlayerJoined: (p) =>
+            setPlayers((prev) =>
+              prev.some((x) => x.id === p.id) ? prev : [...prev, p],
+            ),
+        });
+
+        cleanup = () => {
+          cleanupUploads();
+          cleanupLive();
+        };
+
+        const [u, p, pl, gu] = await Promise.all([
           listUploaders(r.id),
           listPhotosForRoom(r.id),
+          listPlayersForRoom(r.id),
+          listGuessesForRoom(r.id),
         ]);
         if (cancelled) return;
         setUploaders((prev) => sortByCreatedAt(mergeById(prev, u)));
         setPhotos((prev) => sortByCreatedAt(mergeById(prev, p)));
+        setPlayers((prev) => mergeById(prev, pl));
+        setGuesses((prev) => mergeById(prev, gu));
         setStatus('ready');
       } catch (err) {
         if (cancelled) return;
@@ -204,6 +237,33 @@ export function HostDashboard() {
         ? (uploaderById.get(currentPhoto.uploader_id)?.name ?? 'Unknown')
         : null;
 
+    const revealedPhotoIds = new Set(
+      photos.filter((p) => p.revealed).map((p) => p.id),
+    );
+
+    // Eligible guessers for the current photo are every player except the one
+    // who uploaded it (the uploader gets to sit out their own photo).
+    const eligibleGuessers = currentPhoto?.uploader_id
+      ? players.filter((p) => p.uploader_id !== currentPhoto.uploader_id)
+      : players;
+    const guessesForCurrent = currentPhoto
+      ? guesses.filter((g) => g.photo_id === currentPhoto.id)
+      : [];
+    const submittedCount = guessesForCurrent.length;
+    const expectedCount = eligibleGuessers.length;
+
+    const correctGuessers = currentPhoto?.revealed
+      ? guessesForCurrent
+          .filter((g) => g.is_correct)
+          .map((g) => {
+            const player = players.find((p) => p.id === g.player_id);
+            const uploader = player
+              ? uploaderById.get(player.uploader_id)
+              : undefined;
+            return uploader?.name ?? '?';
+          })
+      : [];
+
     return (
       <main className="min-h-screen p-6 max-w-3xl mx-auto space-y-6">
         <header className="flex items-baseline justify-between gap-4 flex-wrap">
@@ -231,15 +291,40 @@ export function HostDashboard() {
         </div>
 
         {uploaderName ? (
-          <div className="rounded-lg bg-emerald-900/30 border border-emerald-700/60 p-4 text-center space-y-1">
-            <p className="text-xs uppercase tracking-wider text-slate-400">
-              Uploaded by
-            </p>
-            <p className="text-3xl font-bold">{uploaderName}</p>
+          <div className="rounded-lg bg-emerald-900/30 border border-emerald-700/60 p-4 text-center space-y-2">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-slate-400">
+                Uploaded by
+              </p>
+              <p className="text-3xl font-bold">{uploaderName}</p>
+            </div>
+            {correctGuessers.length > 0 ? (
+              <p className="text-sm text-emerald-200">
+                Got it right: {correctGuessers.join(', ')}
+              </p>
+            ) : expectedCount > 0 ? (
+              <p className="text-sm text-emerald-300/80">
+                Nobody got this one.
+              </p>
+            ) : null}
           </div>
         ) : (
-          <div className="rounded-lg bg-slate-900 border border-slate-800 p-4 text-center text-slate-400 text-sm">
-            Players are guessing. Reveal when you're ready.
+          <div className="rounded-lg bg-slate-900 border border-slate-800 p-4 text-center text-sm">
+            <p className="text-slate-400">
+              {expectedCount === 0
+                ? 'Waiting for players to join…'
+                : `${submittedCount} of ${expectedCount} guessed`}
+            </p>
+            {expectedCount > 0 && (
+              <div className="mt-2 h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-indigo-500 transition-all"
+                  style={{
+                    width: `${Math.min(100, (submittedCount / expectedCount) * 100)}%`,
+                  }}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -265,12 +350,30 @@ export function HostDashboard() {
           <button
             type="button"
             onClick={onNext}
-            disabled={!hostToken || busy !== null}
+            disabled={
+              !hostToken ||
+              busy !== null ||
+              !(currentPhoto?.revealed ?? false)
+            }
             className="flex-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed py-3 font-semibold transition-colors"
+            title={
+              currentPhoto?.revealed
+                ? undefined
+                : 'Reveal the current photo first'
+            }
           >
             {busy === 'next' ? 'Loading…' : 'Next'}
           </button>
         </div>
+
+        {players.length > 0 && (
+          <Leaderboard
+            players={players}
+            uploaders={uploaders}
+            guesses={guesses}
+            revealedPhotoIds={revealedPhotoIds}
+          />
+        )}
 
         <section className="rounded-lg bg-slate-900 border border-slate-800 p-4 space-y-4">
           <h3 className="text-xs uppercase tracking-wider text-slate-500">
