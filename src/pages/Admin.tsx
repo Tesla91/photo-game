@@ -1,10 +1,12 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import {
   adminDeleteRoom,
   adminListRooms,
   type AdminRoom,
 } from '../lib/api';
+import { humanizeError } from '../lib/errors';
 
 const ADMIN_TOKEN_KEY = 'photo-game:admin-token';
 
@@ -27,6 +29,7 @@ function copyToClipboard(text: string): void {
 }
 
 export function Admin() {
+  useDocumentTitle('Admin • Photo Guess');
   const [token, setToken] = useState<string | null>(getAdminToken());
   const [tokenInput, setTokenInput] = useState('');
   const [rooms, setRooms] = useState<AdminRoom[]>([]);
@@ -43,13 +46,13 @@ export function Admin() {
       const r = await adminListRooms(token);
       setRooms(r);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.toLowerCase().includes('unauthor')) {
+      const raw = err instanceof Error ? err.message : String(err);
+      if (raw.toLowerCase().includes('unauthor')) {
         clearAdminToken();
         setToken(null);
         setError('Token rejected. Try again.');
       } else {
-        setError(msg);
+        setError(humanizeError(err));
       }
     } finally {
       setLoading(false);
@@ -81,7 +84,7 @@ export function Admin() {
       await adminDeleteRoom(token, room.id);
       setRooms((prev) => prev.filter((r) => r.id !== room.id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(humanizeError(err));
     } finally {
       setDeletingId(null);
     }

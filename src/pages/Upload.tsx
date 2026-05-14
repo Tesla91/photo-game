@@ -1,5 +1,7 @@
 import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { humanizeError } from '../lib/errors';
 import {
   addPhoto,
   addUploader,
@@ -32,6 +34,7 @@ type Status =
 export function Upload() {
   const { code: codeParam = '' } = useParams<{ code: string }>();
   const code = codeParam.toUpperCase();
+  useDocumentTitle(`Upload to ${code} • Photo Guess`);
 
   const [status, setStatus] = useState<Status>('loading');
   const [room, setRoom] = useState<Room | null>(null);
@@ -69,7 +72,7 @@ export function Upload() {
       setConfirmed(isUploadConfirmed(code));
       setStatus('ready');
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(humanizeError(err));
       setStatus('error');
     }
   }, [code]);
@@ -90,12 +93,7 @@ export function Upload() {
       });
       await refresh();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.toLowerCase().includes('duplicate') || msg.toLowerCase().includes('unique')) {
-        setError('That name is already taken in this room. Try another.');
-      } else {
-        setError(msg);
-      }
+      setError(humanizeError(err));
     }
   };
 
@@ -120,7 +118,7 @@ export function Upload() {
       setUploadConfirmed(code, false);
       setConfirmed(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(humanizeError(err));
     } finally {
       setBusySlots((prev) => {
         const next = new Set(prev);
@@ -156,7 +154,7 @@ export function Upload() {
           // ignore
         }
       }
-      setError(err instanceof Error ? err.message : String(err));
+      setError(humanizeError(err));
     } finally {
       setDeletingId(null);
     }

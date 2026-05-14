@@ -1,9 +1,12 @@
 import { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { createRoom } from '../lib/api';
+import { humanizeError } from '../lib/errors';
 import { setToken } from '../lib/tokens';
 
 export function HostNew() {
+  useDocumentTitle('New room • Photo Guess');
   const navigate = useNavigate();
   const [photosPerPlayer, setPhotosPerPlayer] = useState(3);
   const [hostMessage, setHostMessage] = useState('');
@@ -19,7 +22,7 @@ export function HostNew() {
       setToken('host', code, host_token);
       navigate(`/host/${code}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(humanizeError(err));
       setSubmitting(false);
     }
   };

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { GameSummary } from '../components/GameSummary';
 import { Leaderboard } from '../components/Leaderboard';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { humanizeError } from '../lib/errors';
 import {
   getPhotoPublicUrl,
   getRoomByCode,
@@ -44,6 +46,7 @@ function mergeById<T extends { id: string }>(prev: T[], next: T[]): T[] {
 export function Play() {
   const { code: codeParam = '' } = useParams<{ code: string }>();
   const code = codeParam.toUpperCase();
+  useDocumentTitle(`Playing ${code} • Photo Guess`);
 
   const [status, setStatus] = useState<Status>('loading');
   const [room, setRoom] = useState<Room | null>(null);
@@ -150,7 +153,7 @@ export function Play() {
         setStatus(resolveStatus(r, !!stash));
       } catch (err) {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : String(err));
+        setError(humanizeError(err));
         setStatus('error');
       }
     })();
@@ -184,7 +187,7 @@ export function Play() {
       setPlayerIdentity(code, stash);
       setIdentityState(stash);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(humanizeError(err));
     } finally {
       setJoining(null);
     }
@@ -206,7 +209,7 @@ export function Play() {
       const gu = await listGuessesForRoom(room!.id);
       setGuesses((prev) => mergeById(prev, gu));
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(humanizeError(err));
     } finally {
       setSubmitting(false);
     }
