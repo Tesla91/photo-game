@@ -289,10 +289,25 @@ export async function adminDeleteRoom(
   adminToken: string,
   roomId: string,
 ): Promise<void> {
-  const { error } = await supabase.rpc('admin_delete_room', {
+  // admin_delete_room drops the DB rows (cascading from rooms) and returns
+  // the storage paths it would otherwise have deleted. Supabase no longer
+  // allows DELETE on storage.objects from SQL, so we follow up with the
+  // Storage API here. If the second call fails the DB is still consistent;
+  // the files just orphan until the next admin pass.
+  const { data, error } = await supabase.rpc('admin_delete_room', {
     p_admin_token: adminToken,
     p_room_id: roomId,
   });
   if (error) throw new Error(error.message);
+
+  const paths = (data ?? []) as string[];
+  if (paths.length > 0) {
+    const { error: storageErr } = await supabase.storage
+      .from('room-photos')
+      .remove(paths);
+    if (storageErr) {
+      console.warn('Storage cleanup failed:', storageErr.message);
+    }
+  }
 }
 
