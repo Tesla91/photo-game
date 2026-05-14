@@ -1,9 +1,12 @@
 import { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { verifyHostToken } from '../lib/api';
+import { humanizeError } from '../lib/errors';
 import { setToken } from '../lib/tokens';
 
 export function HostRejoin() {
+  useDocumentTitle('Resume hosting • Photo Guess');
   const navigate = useNavigate();
   const [code, setCode] = useState('');
   const [hostToken, setHostTokenInput] = useState('');
@@ -28,7 +31,7 @@ export function HostRejoin() {
       setToken('host', trimmedCode, trimmedToken);
       navigate(`/host/${trimmedCode}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(humanizeError(err));
       setSubmitting(false);
     }
   };

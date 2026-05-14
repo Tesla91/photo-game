@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router-dom';
 import { GameSummary } from '../components/GameSummary';
 import { Leaderboard } from '../components/Leaderboard';
 import { QrCode } from '../components/QrCode';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { humanizeError } from '../lib/errors';
 import {
   getPhotoPublicUrl,
   getRoomByCode,
@@ -38,6 +40,7 @@ function sortByCreatedAt<T extends { created_at: string }>(items: T[]): T[] {
 export function HostDashboard() {
   const { code: codeParam = '' } = useParams<{ code: string }>();
   const code = codeParam.toUpperCase();
+  useDocumentTitle(`Host ${code} • Photo Guess`);
 
   const [room, setRoom] = useState<Room | null>(null);
   const [uploaders, setUploaders] = useState<Uploader[]>([]);
@@ -109,7 +112,7 @@ export function HostDashboard() {
         setStatus('ready');
       } catch (err) {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : String(err));
+        setError(humanizeError(err));
         setStatus('error');
       }
     })();
@@ -160,7 +163,7 @@ export function HostDashboard() {
         setPhotos(await listPhotosForRoom(r.id));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(humanizeError(err));
     } finally {
       setBusy(null);
     }
@@ -178,7 +181,7 @@ export function HostDashboard() {
         ),
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(humanizeError(err));
     } finally {
       setBusy(null);
     }
@@ -198,7 +201,7 @@ export function HostDashboard() {
         setRoom((r) => (r ? { ...r, current_photo_id: nextId } : r));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(humanizeError(err));
     } finally {
       setBusy(null);
     }

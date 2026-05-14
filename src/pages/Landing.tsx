@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export function Landing() {
+  useDocumentTitle('Photo Guess');
   const navigate = useNavigate();
   const [code, setCode] = useState('');
 
