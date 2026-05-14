@@ -24,10 +24,6 @@ function fmt(date: string): string {
   return new Date(date).toLocaleString();
 }
 
-function copyToClipboard(text: string): void {
-  void navigator.clipboard?.writeText(text);
-}
-
 export function Admin() {
   useDocumentTitle('Admin • Photo Guess');
   const [token, setToken] = useState<string | null>(getAdminToken());
@@ -36,7 +32,6 @@ export function Admin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [revealedTokens, setRevealedTokens] = useState<Set<string>>(new Set());
 
   const reload = useCallback(async () => {
     if (!token) return;
@@ -95,16 +90,6 @@ export function Admin() {
     setToken(null);
     setTokenInput('');
     setRooms([]);
-    setRevealedTokens(new Set());
-  };
-
-  const toggleHostToken = (id: string) => {
-    setRevealedTokens((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
   };
 
   if (!token) {
@@ -182,7 +167,6 @@ export function Admin() {
       ) : (
         <ul className="space-y-3">
           {rooms.map((room) => {
-            const revealed = revealedTokens.has(room.id);
             const isDeleting = deletingId === room.id;
             return (
               <li
@@ -246,28 +230,6 @@ export function Admin() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="text-slate-500">host token</span>
-                  <button
-                    type="button"
-                    onClick={() => toggleHostToken(room.id)}
-                    className="text-indigo-400 hover:text-indigo-300"
-                  >
-                    {revealed ? 'hide' : 'show'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => copyToClipboard(room.host_token)}
-                    className="text-indigo-400 hover:text-indigo-300"
-                  >
-                    copy
-                  </button>
-                  {revealed && (
-                    <code className="font-mono text-slate-400 break-all">
-                      {room.host_token}
-                    </code>
-                  )}
-                </div>
               </li>
             );
           })}

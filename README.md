@@ -115,11 +115,11 @@ In the SQL editor, run:
 select * from public.create_room(3);  -- create a test room
 ```
 
-It should return one row with a 5-character `code` and a long `host_token`. Now you're ready to wire up the app (commit 4 onward).
+It should return one row with a 5-character `code`. Now you're ready to wire up the app (commit 4 onward).
 
 ### Admin page
 
-The `/admin` route lets you list every room with its photo/uploader counts, expiry, and host token, and delete a room (including its photos in storage). It's gated by a single admin token that the migration generates on first run. Find it once via:
+The `/admin` route lets you list every room with its photo/uploader counts and expiry, and delete a room (including its photos in storage). It's gated by a single admin token that the migration generates on first run. Find it once via:
 
 ```sql
 select admin_token from public.admin_config;

@@ -22,7 +22,6 @@ import {
   type Uploader,
 } from '../lib/api';
 import { subscribePlayerRoom, subscribeRoomUploads } from '../lib/realtime';
-import { getToken } from '../lib/tokens';
 
 type Status = 'loading' | 'ready' | 'not_found' | 'error';
 
@@ -50,8 +49,6 @@ export function HostDashboard() {
   const [status, setStatus] = useState<Status>('loading');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<'start' | 'reveal' | 'next' | null>(null);
-
-  const hostToken = getToken('host', code);
 
   useEffect(() => {
     let cancelled = false;
@@ -152,11 +149,11 @@ export function HostDashboard() {
   );
 
   const onStart = async () => {
-    if (!hostToken || !room) return;
+    if (!room) return;
     setBusy('start');
     setError(null);
     try {
-      await startGame(code, hostToken);
+      await startGame(code);
       const r = await getRoomByCode(code);
       if (r) {
         setRoom(r);
@@ -170,11 +167,11 @@ export function HostDashboard() {
   };
 
   const onReveal = async () => {
-    if (!hostToken || !currentPhoto) return;
+    if (!currentPhoto) return;
     setBusy('reveal');
     setError(null);
     try {
-      await revealCurrentPhoto(code, hostToken);
+      await revealCurrentPhoto(code);
       setPhotos((prev) =>
         prev.map((p) =>
           p.id === currentPhoto.id ? { ...p, revealed: true } : p,
@@ -188,11 +185,10 @@ export function HostDashboard() {
   };
 
   const onNext = async () => {
-    if (!hostToken) return;
     setBusy('next');
     setError(null);
     try {
-      const nextId = await nextPhoto(code, hostToken);
+      const nextId = await nextPhoto(code);
       if (nextId === null) {
         setRoom((r) =>
           r ? { ...r, state: 'finished', current_photo_id: null } : r,
@@ -342,7 +338,7 @@ export function HostDashboard() {
           <button
             type="button"
             onClick={onReveal}
-            disabled={!hostToken || currentPhoto?.revealed || busy !== null}
+            disabled={currentPhoto?.revealed || busy !== null}
             className="flex-1 rounded-lg bg-indigo-500 hover:bg-indigo-400 disabled:opacity-40 disabled:cursor-not-allowed py-3 font-semibold transition-colors"
           >
             {busy === 'reveal'
@@ -354,11 +350,7 @@ export function HostDashboard() {
           <button
             type="button"
             onClick={onNext}
-            disabled={
-              !hostToken ||
-              busy !== null ||
-              !(currentPhoto?.revealed ?? false)
-            }
+            disabled={busy !== null || !(currentPhoto?.revealed ?? false)}
             className="flex-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed py-3 font-semibold transition-colors"
             title={
               currentPhoto?.revealed
@@ -472,59 +464,9 @@ export function HostDashboard() {
         </p>
       </header>
 
-      {!hostToken && (
-        <div className="rounded-lg bg-yellow-900/30 border border-yellow-700/60 p-4 space-y-1">
-          <p className="font-semibold">You're not the host of this room.</p>
-          <p className="text-sm text-slate-300">
-            This browser doesn't have the host token. Only the device that
-            created the room can start the game.
-          </p>
-        </div>
-      )}
-
-      {hostToken && (
-        <details className="rounded-lg bg-slate-900 border border-slate-800 group">
-          <summary className="cursor-pointer px-4 py-3 text-sm text-slate-300 list-none flex items-center justify-between">
-            <span>Re-host on another device</span>
-            <span className="text-slate-500 text-xs group-open:hidden">show</span>
-            <span className="text-slate-500 text-xs hidden group-open:inline">hide</span>
-          </summary>
-          <div className="border-t border-slate-800 px-4 py-3 space-y-3 text-sm">
-            <p className="text-slate-400">
-              Save these somewhere safe. Paste them at{' '}
-              <code className="text-slate-300">/host/rejoin</code> on another
-              device or browser to resume hosting this room.
-            </p>
-            <div className="space-y-1">
-              <div className="text-xs uppercase tracking-wider text-slate-500">
-                Code
-              </div>
-              <div className="font-mono">{code}</div>
-            </div>
-            <div className="space-y-1">
-              <div className="text-xs uppercase tracking-wider text-slate-500">
-                Host token
-              </div>
-              <div className="flex gap-2">
-                <input
-                  readOnly
-                  type="text"
-                  value={hostToken}
-                  onFocus={(e) => e.target.select()}
-                  className="flex-1 rounded-md bg-slate-950 border border-slate-800 px-2 py-1.5 font-mono text-xs"
-                />
-                <button
-                  type="button"
-                  onClick={() => navigator.clipboard?.writeText(hostToken)}
-                  className="rounded-md bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs transition-colors"
-                >
-                  Copy
-                </button>
-              </div>
-            </div>
-          </div>
-        </details>
-      )}
+      <div className="rounded-lg bg-indigo-900/30 border border-indigo-700/60 px-4 py-3 text-sm text-indigo-100">
+        You're hosting. Bookmark this URL to come back later — anyone with it can host.
+      </div>
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Share this link</h2>
@@ -593,7 +535,7 @@ export function HostDashboard() {
       <button
         type="button"
         onClick={onStart}
-        disabled={!canStart || !hostToken || busy !== null}
+        disabled={!canStart || busy !== null}
         className="w-full rounded-lg bg-indigo-500 hover:bg-indigo-400 disabled:opacity-40 disabled:cursor-not-allowed py-3 font-semibold transition-colors"
       >
         {busy === 'start'

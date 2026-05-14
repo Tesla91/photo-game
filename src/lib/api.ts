@@ -23,7 +23,6 @@ export type Uploader = {
 export type CreateRoomResult = {
   room_id: string;
   code: string;
-  host_token: string;
 };
 
 export async function createRoom(
@@ -166,34 +165,26 @@ export function getPhotoPublicUrl(storagePath: string): string {
 }
 
 // ---------- Game control (host) -------------------------------------------
+// Host authority is "knows the /host/<code> URL"; no token is sent.
 
-export async function startGame(roomCode: string, hostToken: string): Promise<void> {
+export async function startGame(roomCode: string): Promise<void> {
   const { error } = await supabase.rpc('start_game', {
     p_room_code: roomCode.toUpperCase(),
-    p_host_token: hostToken,
   });
   if (error) throw new Error(error.message);
 }
 
-export async function nextPhoto(
-  roomCode: string,
-  hostToken: string,
-): Promise<string | null> {
+export async function nextPhoto(roomCode: string): Promise<string | null> {
   const { data, error } = await supabase.rpc('next_photo', {
     p_room_code: roomCode.toUpperCase(),
-    p_host_token: hostToken,
   });
   if (error) throw new Error(error.message);
   return (data as string | null) ?? null;
 }
 
-export async function revealCurrentPhoto(
-  roomCode: string,
-  hostToken: string,
-): Promise<void> {
+export async function revealCurrentPhoto(roomCode: string): Promise<void> {
   const { error } = await supabase.rpc('reveal_current_photo', {
     p_room_code: roomCode.toUpperCase(),
-    p_host_token: hostToken,
   });
   if (error) throw new Error(error.message);
 }
@@ -284,7 +275,6 @@ export type AdminRoom = {
   photo_count: number;
   created_at: string;
   expires_at: string;
-  host_token: string;
 };
 
 export async function adminListRooms(adminToken: string): Promise<AdminRoom[]> {
@@ -306,14 +296,3 @@ export async function adminDeleteRoom(
   if (error) throw new Error(error.message);
 }
 
-export async function verifyHostToken(
-  roomCode: string,
-  hostToken: string,
-): Promise<boolean> {
-  const { data, error } = await supabase.rpc('verify_host_token', {
-    p_room_code: roomCode.toUpperCase(),
-    p_host_token: hostToken,
-  });
-  if (error) throw new Error(error.message);
-  return data as boolean;
-}

@@ -389,7 +389,7 @@ export function Upload() {
       {allFilled ? (
         <div className="space-y-3">
           <p className="text-center text-sm text-slate-400">
-            Happy with these? Tap a photo's ✕ to swap one out.
+            Happy with these?
           </p>
           <button
             type="button"
