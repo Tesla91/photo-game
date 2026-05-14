@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 export function Landing() {
   const navigate = useNavigate();
@@ -48,6 +48,16 @@ export function Landing() {
             </button>
           </div>
         </section>
+
+        <p className="text-center text-sm text-slate-500">
+          Already hosting a room?{' '}
+          <Link
+            to="/host/rejoin"
+            className="text-indigo-400 hover:text-indigo-300"
+          >
+            Resume hosting
+          </Link>
+        </p>
       </div>
     </main>
   );
