@@ -34,20 +34,31 @@ npm run preview
 
 ## Deploy
 
-Deployment is automated by `.github/workflows/deploy.yml` — every push to `main` builds the app and publishes it to GitHub Pages.
+Deployment is automated by `.github/workflows/deploy.yml` — every push to `main`:
+
+1. Applies any pending Supabase migrations from `supabase/migrations/` via `supabase db push` (the **migrate** job).
+2. Builds the Vite app with the Supabase env vars (the **build** job).
+3. Publishes the static output to GitHub Pages (the **deploy** job).
 
 ### One-time setup
 
 1. In the GitHub repo: **Settings → Pages → Build and deployment → Source**, choose **GitHub Actions**.
-2. Add the following **Repository secrets** (Settings → Secrets and variables → Actions):
-   - `VITE_SUPABASE_URL` — your Supabase project URL (e.g. `https://abcd1234.supabase.co`)
-   - `VITE_SUPABASE_ANON_KEY` — your Supabase project anon/public API key
+2. Enable **pg_cron** in the Supabase Dashboard (Database → Extensions). Without this, the first migration push will fail — the rest of the migration relies on `cron.schedule`.
+3. Add the following **Repository secrets** (Settings → Secrets and variables → Actions):
 
-   _These are wired into `vite build` at deploy time. Both are safe to expose to browsers; Supabase RLS controls real access._
+   | Secret | What it is |
+   |---|---|
+   | `VITE_SUPABASE_URL` | Project URL, e.g. `https://abcd1234.supabase.co` |
+   | `VITE_SUPABASE_ANON_KEY` | Project anon/public API key |
+   | `SUPABASE_ACCESS_TOKEN` | Personal access token from [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens). Used by the CLI to authenticate. |
+   | `SUPABASE_PROJECT_REF` | Project ref (the `abcd1234` from the project URL). |
+   | `SUPABASE_DB_PASSWORD` | The database password you set when creating the project. |
 
-3. Confirm the repo name matches the Vite base path. The base is set to `/photo-game/` in `vite.config.ts` — if you rename the repo, update that value to match (or set it to `/` for a user/org Pages site).
+   `VITE_*` are baked into the static bundle (safe to expose; Supabase RLS controls real access). The others stay server-side, only the migrate job sees them.
 
-After the first successful run, the app is live at `https://<your-user>.github.io/photo-game/`.
+4. Confirm the repo name matches the Vite base path. The base is set to `/photo-game/` in `vite.config.ts` — if you rename the repo, update that value to match (or set it to `/` for a user/org Pages site).
+
+After the first successful run, the app is live at `https://<your-user>.github.io/photo-game/` and your Supabase schema is up to date.
 
 ### Manual deploy
 
