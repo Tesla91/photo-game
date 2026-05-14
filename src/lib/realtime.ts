@@ -3,7 +3,7 @@
 // that removes the channel — pair them with useEffect's cleanup slot.
 
 import { supabase } from './supabase';
-import type { Photo, Room, RoomState, Uploader } from './api';
+import type { Guess, Photo, Player, Room, RoomState, Uploader } from './api';
 
 export type RoomUploadEvents = {
   onUploaderAdded: (u: Uploader) => void;
@@ -57,13 +57,15 @@ export function subscribeRoomUploads(
 export type PlayerRoomEvents = {
   onRoomChanged: (room: { state: RoomState; current_photo_id: string | null }) => void;
   onPhotoUpdated: (photo: Photo) => void;
+  onGuessAdded?: (guess: Guess) => void;
+  onPlayerJoined?: (player: Player) => void;
 };
 
 export function subscribePlayerRoom(
   roomId: string,
   events: PlayerRoomEvents,
 ): () => void {
-  const channel = supabase
+  let channel = supabase
     .channel(`player-room:${roomId}`)
     .on(
       'postgres_changes',
@@ -90,8 +92,35 @@ export function subscribePlayerRoom(
         filter: `room_id=eq.${roomId}`,
       },
       (payload) => events.onPhotoUpdated(payload.new as Photo),
-    )
-    .subscribe();
+    );
+
+  if (events.onGuessAdded) {
+    channel = channel.on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'guesses',
+        filter: `room_id=eq.${roomId}`,
+      },
+      (payload) => events.onGuessAdded!(payload.new as Guess),
+    );
+  }
+
+  if (events.onPlayerJoined) {
+    channel = channel.on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'players',
+        filter: `room_id=eq.${roomId}`,
+      },
+      (payload) => events.onPlayerJoined!(payload.new as Player),
+    );
+  }
+
+  channel.subscribe();
 
   return () => {
     void supabase.removeChannel(channel);
