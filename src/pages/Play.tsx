@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { GameSummary } from '../components/GameSummary';
 import { Leaderboard } from '../components/Leaderboard';
 import {
   getPhotoPublicUrl,
@@ -259,22 +260,29 @@ export function Play() {
 
   if (status === 'finished') {
     return (
-      <main className="min-h-screen flex items-center justify-center p-6">
-        <div className="w-full max-w-md space-y-6">
-          <header className="text-center space-y-2">
-            <p className="text-sm text-slate-500 uppercase tracking-wider">
-              Room {code}
-            </p>
-            <h1 className="text-3xl font-bold">Game over</h1>
-            <p className="text-slate-400">Final standings:</p>
-          </header>
-          <Leaderboard
-            players={players}
-            uploaders={uploaders}
-            guesses={guesses}
-            revealedPhotoIds={revealedPhotoIds}
-            highlightPlayerId={identity?.playerId}
-          />
+      <main className="min-h-screen p-4 max-w-md mx-auto space-y-6">
+        <header className="text-center space-y-2 pt-4">
+          <p className="text-xs uppercase tracking-wider text-slate-500">
+            Room {code}
+          </p>
+          <h1 className="text-3xl font-bold">Game over</h1>
+        </header>
+
+        <GameSummary
+          uploaders={uploaders}
+          photos={photos}
+          players={players}
+          guesses={guesses}
+          highlightPlayerId={identity?.playerId}
+        />
+
+        <div className="text-center">
+          <Link
+            to="/"
+            className="inline-block text-indigo-400 hover:text-indigo-300"
+          >
+            Back to start
+          </Link>
         </div>
       </main>
     );
