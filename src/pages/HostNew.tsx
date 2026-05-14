@@ -6,6 +6,7 @@ import { setToken } from '../lib/tokens';
 export function HostNew() {
   const navigate = useNavigate();
   const [photosPerPlayer, setPhotosPerPlayer] = useState(3);
+  const [hostMessage, setHostMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -14,7 +15,7 @@ export function HostNew() {
     setSubmitting(true);
     setError(null);
     try {
-      const { code, host_token } = await createRoom(photosPerPlayer);
+      const { code, host_token } = await createRoom(photosPerPlayer, hostMessage);
       setToken('host', code, host_token);
       navigate(`/host/${code}`);
     } catch (err) {
@@ -45,6 +46,24 @@ export function HostNew() {
             required
             className="w-full rounded-lg bg-slate-900 border border-slate-800 px-3 py-2 focus:outline-none focus:border-indigo-500"
           />
+        </label>
+
+        <label className="block space-y-2">
+          <span className="text-sm text-slate-400">
+            Message shown after upload{' '}
+            <span className="text-slate-600">(optional)</span>
+          </span>
+          <textarea
+            value={hostMessage}
+            onChange={(e) => setHostMessage(e.target.value)}
+            placeholder="e.g. Thanks! Game will be played Saturday in Rome."
+            rows={3}
+            maxLength={500}
+            className="w-full rounded-lg bg-slate-900 border border-slate-800 px-3 py-2 focus:outline-none focus:border-indigo-500 resize-none"
+          />
+          <span className="block text-xs text-slate-500">
+            Appears on each player's thank-you screen once they confirm their photos.
+          </span>
         </label>
 
         {error && (

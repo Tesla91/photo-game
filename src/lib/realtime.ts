@@ -8,6 +8,7 @@ import type { Photo, Uploader } from './api';
 export type RoomUploadEvents = {
   onUploaderAdded: (u: Uploader) => void;
   onPhotoAdded: (p: Photo) => void;
+  onPhotoRemoved: (id: string) => void;
 };
 
 export function subscribeRoomUploads(
@@ -35,6 +36,16 @@ export function subscribeRoomUploads(
         filter: `room_id=eq.${roomId}`,
       },
       (payload) => events.onPhotoAdded(payload.new as Photo),
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'photos',
+        filter: `room_id=eq.${roomId}`,
+      },
+      (payload) => events.onPhotoRemoved((payload.old as Photo).id),
     )
     .subscribe();
 
