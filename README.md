@@ -46,19 +46,25 @@ You need one Supabase project (free tier is fine). One-time steps:
 
 ### 2. Enable required extensions
 
-Database → Extensions → enable **`pgcrypto`** and **`pg_cron`** if not already on. (The migration tries to enable them automatically, but on some plans it's blocked unless you flip the switch here first.)
+Database → Extensions → enable **`pg_cron`** (Supabase forces this into the `pg_catalog` schema — that's the only choice; just click Enable). `pgcrypto` is enabled automatically by the migration.
 
-### 3. Run the migration
+### 3. Apply the migration
 
-Open the SQL editor in the dashboard, paste the contents of [`supabase/migrations/0001_init.sql`](./supabase/migrations/0001_init.sql), and run it. This creates:
+The deploy workflow runs `supabase db push` on every push to `main` (see [Deploy](#deploy)) — once the workflow secrets are set, migrations apply automatically. If you want to run them manually before that's wired up:
+
+```bash
+# requires the Supabase CLI: https://supabase.com/docs/guides/cli
+supabase link --project-ref <your-ref>
+supabase db push
+```
+
+The migration creates:
 
 - Tables: `rooms`, `uploaders`, `photos`, `players`, `guesses`
 - RLS: anon can read all tables (writes go through RPC only)
 - RPCs: `create_room`, `add_uploader`, `add_photo`, `start_game`, `next_photo`, `reveal_current_photo`, `join_as_player`, `submit_guess`
 - Realtime publication on all five tables
 - `cleanup_expired_rooms()` scheduled daily at 04:00 UTC via pg_cron
-
-If you'd rather use the Supabase CLI: `supabase link --project-ref <ref>` then `supabase db push` will apply migrations under `supabase/migrations/`.
 
 ### 4. Create the storage bucket
 

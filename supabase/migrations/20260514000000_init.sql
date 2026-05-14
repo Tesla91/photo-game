@@ -8,7 +8,12 @@
 -- ============================================================================
 
 create extension if not exists pgcrypto;
-create extension if not exists pg_cron;
+
+-- pg_cron must be enabled via the Supabase Dashboard (Database → Extensions →
+-- pg_cron, schema = pg_catalog) before this migration runs. Enabling it via
+-- `create extension` requires privileges the migration role does not have
+-- on hosted Supabase. The cron.schedule() call near the bottom assumes the
+-- extension is already enabled.
 
 -- ---------- Tables -----------------------------------------------------------
 
