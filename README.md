@@ -135,15 +135,12 @@ The route isn't linked from the main UI — bookmark `/<base>/#/admin`.
 
 ### Note on cleanup
 
-`cleanup_expired_rooms()` runs daily at 04:00 UTC via pg_cron and:
+`cleanup_expired_rooms()` runs daily at 04:00 UTC via pg_cron and deletes the `rooms` rows that have passed their `expires_at` (cascades clean `uploaders`, `photos`, `players`, and `guesses`).
 
-1. Deletes the matching rows from `storage.objects` under `room-photos/{room_id}/*` — Supabase's storage hook fires and drops the underlying JPEGs from object storage.
-2. Deletes the `rooms` rows — cascades clean up `uploaders`, `photos`, `players`, and `guesses`.
-
-To trigger it manually (handy for testing or one-off purges) run in the SQL editor:
+To trigger it manually run in the SQL editor:
 
 ```sql
 select public.cleanup_expired_rooms();
 ```
 
-No edge function is required — the whole flow happens inside Postgres.
+**Storage cleanup**: Supabase blocks `DELETE FROM storage.objects` via SQL, so the cron only cleans DB rows. Files orphan in the `room-photos` bucket until somebody deletes the room through the **/admin** page (which does drop the underlying files via the Storage API). For friend-group volumes on the free tier the orphan rate is well below the 1 GB ceiling; if it ever becomes a problem we'll wire an edge function to mop up.
