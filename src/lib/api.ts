@@ -54,3 +54,76 @@ export async function listUploaders(roomId: string): Promise<Uploader[]> {
   if (error) throw new Error(error.message);
   return (data ?? []) as Uploader[];
 }
+
+export type Photo = {
+  id: string;
+  room_id: string;
+  uploader_id: string | null;
+  storage_path: string;
+  play_order: number | null;
+  revealed: boolean;
+  created_at: string;
+};
+
+export type AddUploaderResult = {
+  uploader_id: string;
+  upload_token: string;
+};
+
+export async function addUploader(
+  roomCode: string,
+  name: string,
+): Promise<AddUploaderResult> {
+  const { data, error } = await supabase.rpc('add_uploader', {
+    p_room_code: roomCode.toUpperCase(),
+    p_name: name.trim(),
+  });
+  if (error) throw new Error(error.message);
+  const row = (data as AddUploaderResult[] | null)?.[0];
+  if (!row) throw new Error('add_uploader returned no row');
+  return row;
+}
+
+export async function addPhoto(
+  roomCode: string,
+  uploadToken: string,
+  storagePath: string,
+): Promise<string> {
+  const { data, error } = await supabase.rpc('add_photo', {
+    p_room_code: roomCode.toUpperCase(),
+    p_upload_token: uploadToken,
+    p_storage_path: storagePath,
+  });
+  if (error) throw new Error(error.message);
+  return data as string;
+}
+
+export async function listPhotosForUploader(uploaderId: string): Promise<Photo[]> {
+  const { data, error } = await supabase
+    .from('photos')
+    .select('id, room_id, uploader_id, storage_path, play_order, revealed, created_at')
+    .eq('uploader_id', uploaderId)
+    .order('created_at', { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Photo[];
+}
+
+export async function uploadFileToStorage(
+  roomId: string,
+  file: Blob,
+): Promise<string> {
+  const storagePath = `${roomId}/${crypto.randomUUID()}.jpg`;
+  const { error } = await supabase.storage
+    .from('room-photos')
+    .upload(storagePath, file, {
+      contentType: 'image/jpeg',
+      upsert: false,
+    });
+  if (error) throw new Error(error.message);
+  return storagePath;
+}
+
+export function getPhotoPublicUrl(storagePath: string): string {
+  return supabase.storage.from('room-photos').getPublicUrl(storagePath).data
+    .publicUrl;
+}
