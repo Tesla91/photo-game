@@ -1,7 +1,28 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getRoomByCode, listUploaders, type Room, type Uploader } from '../lib/api';
+import {
+  getRoomByCode,
+  listPhotosForRoom,
+  listUploaders,
+  type Photo,
+  type Room,
+  type Uploader,
+} from '../lib/api';
+import { subscribeRoomUploads } from '../lib/realtime';
 import { getToken } from '../lib/tokens';
+
+type Status = 'loading' | 'ready' | 'not_found' | 'error';
+
+function mergeById<T extends { id: string }>(prev: T[], next: T[]): T[] {
+  const byId = new Map<string, T>();
+  for (const item of prev) byId.set(item.id, item);
+  for (const item of next) byId.set(item.id, item);
+  return Array.from(byId.values());
+}
+
+function sortByCreatedAt<T extends { created_at: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => a.created_at.localeCompare(b.created_at));
+}
 
 export function HostDashboard() {
   const { code: codeParam = '' } = useParams<{ code: string }>();
@@ -9,32 +30,65 @@ export function HostDashboard() {
 
   const [room, setRoom] = useState<Room | null>(null);
   const [uploaders, setUploaders] = useState<Uploader[]>([]);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'not_found' | 'error'>('loading');
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [status, setStatus] = useState<Status>('loading');
   const [error, setError] = useState<string | null>(null);
 
   const hostToken = getToken('host', code);
 
-  const reload = useCallback(async () => {
-    setStatus('loading');
-    setError(null);
-    try {
-      const r = await getRoomByCode(code);
-      if (!r) {
-        setStatus('not_found');
-        return;
+  useEffect(() => {
+    let cancelled = false;
+    let cleanup: (() => void) | null = null;
+
+    (async () => {
+      try {
+        const r = await getRoomByCode(code);
+        if (cancelled) return;
+        if (!r) {
+          setStatus('not_found');
+          return;
+        }
+        setRoom(r);
+
+        // Subscribe BEFORE the initial fetch so events fired while we're
+        // fetching aren't lost. Add-events use dedup, so a row that
+        // arrives via both paths is only stored once.
+        cleanup = subscribeRoomUploads(r.id, {
+          onUploaderAdded: (u) =>
+            setUploaders((prev) => sortByCreatedAt(mergeById(prev, [u]))),
+          onPhotoAdded: (p) =>
+            setPhotos((prev) => sortByCreatedAt(mergeById(prev, [p]))),
+        });
+
+        const [u, p] = await Promise.all([
+          listUploaders(r.id),
+          listPhotosForRoom(r.id),
+        ]);
+        if (cancelled) return;
+        setUploaders((prev) => sortByCreatedAt(mergeById(prev, u)));
+        setPhotos((prev) => sortByCreatedAt(mergeById(prev, p)));
+        setStatus('ready');
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : String(err));
+        setStatus('error');
       }
-      setRoom(r);
-      setUploaders(await listUploaders(r.id));
-      setStatus('ready');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      setStatus('error');
-    }
+    })();
+
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
   }, [code]);
 
-  useEffect(() => {
-    reload();
-  }, [reload]);
+  const photoCountByUploader = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of photos) {
+      if (p.uploader_id)
+        counts.set(p.uploader_id, (counts.get(p.uploader_id) ?? 0) + 1);
+    }
+    return counts;
+  }, [photos]);
 
   if (status === 'loading') {
     return <main className="p-6 text-slate-400">Loading room…</main>;
@@ -56,15 +110,12 @@ export function HostDashboard() {
     return (
       <main className="p-6">
         <p className="text-red-400">Couldn't load the room: {error}</p>
-        <button onClick={reload} className="mt-3 text-indigo-400 hover:text-indigo-300">
-          Try again
-        </button>
       </main>
     );
   }
 
   const uploadUrl = `${window.location.origin}${import.meta.env.BASE_URL}#/r/${code}`;
-  const canStart = uploaders.length >= 2;
+  const canStart = uploaders.length >= 2 && photos.length > 0;
 
   return (
     <main className="min-h-screen p-6 max-w-2xl mx-auto space-y-8">
@@ -72,8 +123,8 @@ export function HostDashboard() {
         <p className="text-sm text-slate-500 uppercase tracking-wider">Room</p>
         <h1 className="text-4xl font-mono font-bold">{code}</h1>
         <p className="text-slate-400">
-          {room.photos_per_player} photo{room.photos_per_player === 1 ? '' : 's'} per
-          player
+          {room.photos_per_player} photo
+          {room.photos_per_player === 1 ? '' : 's'} per player
         </p>
       </header>
 
@@ -81,8 +132,8 @@ export function HostDashboard() {
         <div className="rounded-lg bg-yellow-900/30 border border-yellow-700/60 p-4 space-y-1">
           <p className="font-semibold">You're not the host of this room.</p>
           <p className="text-sm text-slate-300">
-            This browser doesn't have the host token. Only the device that created
-            the room can start the game.
+            This browser doesn't have the host token. Only the device that
+            created the room can start the game.
           </p>
         </div>
       )}
@@ -110,32 +161,37 @@ export function HostDashboard() {
       </section>
 
       <section className="space-y-3">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-lg font-semibold">
-            Uploaders ({uploaders.length})
-          </h2>
-          <button
-            type="button"
-            onClick={reload}
-            className="text-sm text-indigo-400 hover:text-indigo-300"
-          >
-            Refresh
-          </button>
-        </div>
+        <h2 className="text-lg font-semibold">
+          Uploaders ({uploaders.length})
+        </h2>
         {uploaders.length === 0 ? (
           <p className="text-slate-400">
             No one's uploaded yet. Send the link to your friends.
           </p>
         ) : (
           <ul className="space-y-2">
-            {uploaders.map((u) => (
-              <li
-                key={u.id}
-                className="rounded-lg bg-slate-900 border border-slate-800 px-4 py-3"
-              >
-                {u.name}
-              </li>
-            ))}
+            {uploaders.map((u) => {
+              const count = photoCountByUploader.get(u.id) ?? 0;
+              const done = count >= room.photos_per_player;
+              return (
+                <li
+                  key={u.id}
+                  className="flex items-center justify-between rounded-lg bg-slate-900 border border-slate-800 px-4 py-3"
+                >
+                  <span>{u.name}</span>
+                  <span
+                    className={
+                      done
+                        ? 'text-emerald-400 text-sm font-mono'
+                        : 'text-slate-400 text-sm font-mono'
+                    }
+                  >
+                    {count}/{room.photos_per_player}
+                    {done ? ' ✓' : ''}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
@@ -145,7 +201,11 @@ export function HostDashboard() {
         disabled={!canStart || !hostToken}
         className="w-full rounded-lg bg-indigo-500 hover:bg-indigo-400 disabled:opacity-40 disabled:cursor-not-allowed py-3 font-semibold transition-colors"
       >
-        {canStart ? 'Start game' : 'Need at least 2 uploaders'}
+        {canStart
+          ? 'Start game'
+          : uploaders.length < 2
+            ? 'Need at least 2 uploaders'
+            : 'Waiting for photos'}
       </button>
     </main>
   );
