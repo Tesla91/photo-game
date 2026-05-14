@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export function Landing() {
@@ -50,16 +50,6 @@ export function Landing() {
             </button>
           </div>
         </section>
-
-        <p className="text-center text-sm text-slate-500">
-          Already hosting a room?{' '}
-          <Link
-            to="/host/rejoin"
-            className="text-indigo-400 hover:text-indigo-300"
-          >
-            Resume hosting
-          </Link>
-        </p>
       </div>
     </main>
   );

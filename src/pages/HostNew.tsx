@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { createRoom } from '../lib/api';
 import { humanizeError } from '../lib/errors';
-import { setToken } from '../lib/tokens';
 
 export function HostNew() {
   useDocumentTitle('New room • Photo Guess');
@@ -18,8 +17,7 @@ export function HostNew() {
     setSubmitting(true);
     setError(null);
     try {
-      const { code, host_token } = await createRoom(photosPerPlayer, hostMessage);
-      setToken('host', code, host_token);
+      const { code } = await createRoom(photosPerPlayer, hostMessage);
       navigate(`/host/${code}`);
     } catch (err) {
       setError(humanizeError(err));

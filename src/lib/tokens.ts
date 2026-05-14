@@ -1,15 +1,16 @@
 // Persists the room-scoped secrets the server hands back from RPCs.
 //
-// • host_token    — proves to start_game / next_photo / reveal_current_photo
-//                   that this browser is the room's host.
 // • upload_token  — proves to add_photo that this browser owns an uploader row.
 // • session_token — proves to submit_guess that this browser is a given player.
 //
-// All three live in localStorage so a refresh or a reopened tab keeps you
-// in the same role. They're scoped by room code so different rooms don't
+// Hosting is gated by URL knowledge (anyone on /host/<code> is the host),
+// so no host_token is stored here.
+//
+// Both live in localStorage so a refresh or a reopened tab keeps you in
+// the same role. They're scoped by room code so different rooms don't
 // stomp on each other.
 
-export type TokenScope = 'host' | 'upload' | 'session';
+export type TokenScope = 'upload' | 'session';
 
 const storageKey = (scope: TokenScope, code: string): string =>
   `photo-game:${scope}:${code.toUpperCase()}`;
@@ -27,7 +28,7 @@ export function clearToken(scope: TokenScope, code: string): void {
 }
 
 export function clearAllTokensForRoom(code: string): void {
-  for (const scope of ['host', 'upload', 'session'] as const) {
+  for (const scope of ['upload', 'session'] as const) {
     clearToken(scope, code);
   }
 }
