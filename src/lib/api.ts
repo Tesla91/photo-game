@@ -198,6 +198,27 @@ export async function revealCurrentPhoto(
   if (error) throw new Error(error.message);
 }
 
+// ---------- Game (player) -------------------------------------------------
+
+export type JoinAsPlayerResult = {
+  player_id: string;
+  session_token: string;
+};
+
+export async function joinAsPlayer(
+  roomCode: string,
+  uploaderId: string,
+): Promise<JoinAsPlayerResult> {
+  const { data, error } = await supabase.rpc('join_as_player', {
+    p_room_code: roomCode.toUpperCase(),
+    p_uploader_id: uploaderId,
+  });
+  if (error) throw new Error(error.message);
+  const row = (data as JoinAsPlayerResult[] | null)?.[0];
+  if (!row) throw new Error('join_as_player returned no row');
+  return row;
+}
+
 // ---------- Admin / recovery ----------------------------------------------
 
 export type AdminRoom = {

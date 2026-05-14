@@ -45,3 +45,30 @@ export function setUploadConfirmed(code: string, confirmed: boolean): void {
   if (confirmed) localStorage.setItem(confirmedKey(code), '1');
   else localStorage.removeItem(confirmedKey(code));
 }
+
+export type PlayerIdentity = {
+  playerId: string;
+  uploaderId: string;
+  name: string;
+};
+
+const playerKey = (code: string): string =>
+  `photo-game:player:${code.toUpperCase()}`;
+
+export function getPlayerIdentity(code: string): PlayerIdentity | null {
+  const raw = localStorage.getItem(playerKey(code));
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as PlayerIdentity;
+  } catch {
+    return null;
+  }
+}
+
+export function setPlayerIdentity(code: string, value: PlayerIdentity): void {
+  localStorage.setItem(playerKey(code), JSON.stringify(value));
+}
+
+export function clearPlayerIdentity(code: string): void {
+  localStorage.removeItem(playerKey(code));
+}
