@@ -165,6 +165,39 @@ export function getPhotoPublicUrl(storagePath: string): string {
     .publicUrl;
 }
 
+// ---------- Game control (host) -------------------------------------------
+
+export async function startGame(roomCode: string, hostToken: string): Promise<void> {
+  const { error } = await supabase.rpc('start_game', {
+    p_room_code: roomCode.toUpperCase(),
+    p_host_token: hostToken,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function nextPhoto(
+  roomCode: string,
+  hostToken: string,
+): Promise<string | null> {
+  const { data, error } = await supabase.rpc('next_photo', {
+    p_room_code: roomCode.toUpperCase(),
+    p_host_token: hostToken,
+  });
+  if (error) throw new Error(error.message);
+  return (data as string | null) ?? null;
+}
+
+export async function revealCurrentPhoto(
+  roomCode: string,
+  hostToken: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('reveal_current_photo', {
+    p_room_code: roomCode.toUpperCase(),
+    p_host_token: hostToken,
+  });
+  if (error) throw new Error(error.message);
+}
+
 // ---------- Admin / recovery ----------------------------------------------
 
 export type AdminRoom = {
