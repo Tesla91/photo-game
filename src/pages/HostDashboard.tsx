@@ -272,24 +272,50 @@ export function HostDashboard() {
           </button>
         </div>
 
-        <details className="rounded-lg bg-slate-900 border border-slate-800 group">
-          <summary className="cursor-pointer px-4 py-3 text-sm text-slate-300 list-none flex items-center justify-between">
-            <span>Late join — show QR + code</span>
-            <span className="text-slate-500 text-xs group-open:hidden">show</span>
-            <span className="text-slate-500 text-xs hidden group-open:inline">
-              hide
-            </span>
-          </summary>
-          <div className="border-t border-slate-800 px-4 py-4 flex flex-col items-center gap-3">
-            <QrCode value={playUrl} size={220} />
-            <div className="text-center space-y-1">
-              <p className="text-xs uppercase tracking-wider text-slate-500">
-                Room code
-              </p>
-              <p className="text-3xl font-mono font-bold">{code}</p>
+        <section className="rounded-lg bg-slate-900 border border-slate-800 p-4 space-y-4">
+          <h3 className="text-xs uppercase tracking-wider text-slate-500">
+            Late join
+          </h3>
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+            <a
+              href={playUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open the play page in a new tab"
+              className="shrink-0"
+            >
+              <QrCode value={playUrl} size={180} />
+            </a>
+            <div className="flex-1 w-full space-y-3 text-center sm:text-left">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-slate-500">
+                  Room code
+                </p>
+                <p className="text-3xl font-mono font-bold">{code}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs uppercase tracking-wider text-slate-500">
+                  Or open this link
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    readOnly
+                    value={playUrl}
+                    onFocus={(e) => e.target.select()}
+                    className="flex-1 min-w-0 rounded-md bg-slate-950 border border-slate-800 px-2 py-1.5 font-mono text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard?.writeText(playUrl)}
+                    className="rounded-md bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs transition-colors"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </details>
+        </section>
       </main>
     );
   }
