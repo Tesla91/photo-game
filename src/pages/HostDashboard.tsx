@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { GameSummary } from '../components/GameSummary';
 import { Leaderboard } from '../components/Leaderboard';
 import { QrCode } from '../components/QrCode';
 import {
@@ -426,13 +427,26 @@ export function HostDashboard() {
   // ============ Finished phase ===========================================
   if (room.state === 'finished') {
     return (
-      <main className="min-h-screen flex items-center justify-center p-6">
-        <div className="text-center space-y-4 max-w-md">
-          <h1 className="text-4xl font-bold">Game finished</h1>
-          <p className="text-slate-400">
-            That was the last photo. A summary screen lands in the next commit.
+      <main className="min-h-screen p-6 max-w-3xl mx-auto space-y-8">
+        <header className="text-center space-y-2">
+          <p className="text-xs uppercase tracking-wider text-slate-500">
+            Room {code}
           </p>
-          <Link to="/" className="text-indigo-400 hover:text-indigo-300 inline-block">
+          <h1 className="text-4xl font-bold">Game finished</h1>
+        </header>
+
+        <GameSummary
+          uploaders={uploaders}
+          photos={photos}
+          players={players}
+          guesses={guesses}
+        />
+
+        <div className="text-center">
+          <Link
+            to="/"
+            className="inline-block text-indigo-400 hover:text-indigo-300"
+          >
             Back to start
           </Link>
         </div>
