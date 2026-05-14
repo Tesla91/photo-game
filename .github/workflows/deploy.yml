@@ -17,6 +17,7 @@ concurrency:
 jobs:
   migrate:
     runs-on: ubuntu-latest
+    environment: github-pages
     steps:
       - uses: actions/checkout@v4
 
@@ -38,6 +39,7 @@ jobs:
   build:
     needs: migrate
     runs-on: ubuntu-latest
+    environment: github-pages
     steps:
       - uses: actions/checkout@v4
 

@@ -56,6 +56,8 @@ Deployment is automated by `.github/workflows/deploy.yml` — every push to `mai
 
    `VITE_*` are baked into the static bundle (safe to expose; Supabase RLS controls real access). The others stay server-side, only the migrate job sees them.
 
+   You can add these as **Repository secrets** (apply to all jobs) or under the **`github-pages` environment** (Settings → Environments → github-pages). All three jobs in this workflow target the `github-pages` environment, so either location works.
+
 4. Confirm the repo name matches the Vite base path. The base is set to `/photo-game/` in `vite.config.ts` — if you rename the repo, update that value to match (or set it to `/` for a user/org Pages site).
 
 After the first successful run, the app is live at `https://<your-user>.github.io/photo-game/` and your Supabase schema is up to date.
