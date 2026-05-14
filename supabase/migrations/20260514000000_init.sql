@@ -520,16 +520,21 @@ begin
 end;
 $$;
 
--- Reschedule idempotently.
+-- Schedule daily cleanup, defensively: Supabase preview branches and local
+-- supabase clones don't have pg_cron enabled, so the schedule is skipped
+-- there with a notice instead of failing the whole migration.
 do $$
 begin
-  if exists (select 1 from cron.job where jobname = 'cleanup-expired-rooms') then
-    perform cron.unschedule('cleanup-expired-rooms');
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    if exists (select 1 from cron.job where jobname = 'cleanup-expired-rooms') then
+      perform cron.unschedule('cleanup-expired-rooms');
+    end if;
+    perform cron.schedule(
+      'cleanup-expired-rooms',
+      '0 4 * * *',  -- 04:00 UTC daily
+      $cmd$ select public.cleanup_expired_rooms() $cmd$
+    );
+  else
+    raise notice 'pg_cron not installed; cleanup_expired_rooms() will not run on a schedule. Enable pg_cron in Supabase Dashboard → Database → Extensions if you want automatic cleanup.';
   end if;
 end $$;
-
-select cron.schedule(
-  'cleanup-expired-rooms',
-  '0 4 * * *',  -- 04:00 UTC daily
-  $$ select public.cleanup_expired_rooms() $$
-);
