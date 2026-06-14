@@ -1,0 +1,94 @@
+name: Teardown (decommission)
+
+# Replaces the old "Deploy to GitHub Pages" workflow. When the decommission
+# branch is merged to main this runs once on the merge commit and brings the
+# whole project down:
+#   1. Empties + deletes the Supabase storage bucket (Storage API)
+#   2. Applies the teardown migration via `supabase db push` (drops all tables,
+#      functions, RLS policies, and unschedules the cleanup cron)
+#   3. Deletes the published GitHub Pages site
+#
+# It is idempotent — safe to re-run via "Run workflow" if a step needs a token
+# fix and a retry.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# pages: write is needed to delete the Pages site with the default token.
+permissions:
+  contents: read
+  pages: write
+
+concurrency:
+  group: teardown
+  cancel-in-progress: false
+
+jobs:
+  teardown:
+    runs-on: ubuntu-latest
+    # Secrets (SUPABASE_*, etc.) are scoped to the github-pages environment,
+    # so the job must run in it to read them.
+    environment: github-pages
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- 1. Empty + delete the storage bucket -----------------------------
+      # SQL can't delete storage.objects, so we go through the Storage API.
+      # Needs a service-role key. If SUPABASE_SERVICE_ROLE_KEY isn't set we
+      # skip this — any orphaned files are removed when you delete the project.
+      - name: Empty and delete storage bucket
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BUCKET: room-photos
+        run: |
+          if [ -z "$SERVICE_KEY" ]; then
+            echo "SUPABASE_SERVICE_ROLE_KEY not set — skipping storage cleanup."
+            echo "Orphaned files will be removed when you delete the project."
+            exit 0
+          fi
+          echo "Emptying bucket '$BUCKET'..."
+          curl -fsS -X POST "$SUPABASE_URL/storage/v1/bucket/$BUCKET/empty" \
+            -H "Authorization: Bearer $SERVICE_KEY" \
+            -H "apikey: $SERVICE_KEY" \
+            -H "Content-Type: application/json" || echo "empty failed (bucket may already be gone)"
+          echo "Deleting bucket '$BUCKET'..."
+          curl -fsS -X DELETE "$SUPABASE_URL/storage/v1/bucket/$BUCKET" \
+            -H "Authorization: Bearer $SERVICE_KEY" \
+            -H "apikey: $SERVICE_KEY" || echo "delete failed (bucket may already be gone)"
+
+      # --- 2. Tear down the database ----------------------------------------
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link Supabase project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+
+      - name: Apply teardown migration
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase db push
+
+      # --- 3. Delete the GitHub Pages site ----------------------------------
+      # Prefers a PAT with repo admin (GH_ADMIN_TOKEN) if you've added one,
+      # otherwise falls back to the workflow's GITHUB_TOKEN.
+      - name: Delete GitHub Pages site
+        env:
+          GH_TOKEN: ${{ secrets.GH_ADMIN_TOKEN || github.token }}
+        run: |
+          if gh api -X DELETE "repos/${{ github.repository }}/pages" 2>err.log; then
+            echo "GitHub Pages site deleted."
+          elif grep -q "404" err.log; then
+            echo "No Pages site found — already removed."
+          else
+            echo "::error::Failed to delete Pages site. The token likely lacks admin rights."
+            echo "Add a PAT with repo admin scope as the GH_ADMIN_TOKEN secret and re-run."
+            cat err.log
+            exit 1
+          fi
