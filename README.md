@@ -144,3 +144,13 @@ select public.cleanup_expired_rooms();
 ```
 
 **Storage cleanup**: Supabase blocks `DELETE FROM storage.objects` via SQL, so the cron only cleans DB rows. Files orphan in the `room-photos` bucket until somebody deletes the room through the **/admin** page (which does drop the underlying files via the Storage API). For friend-group volumes on the free tier the orphan rate is well below the 1 GB ceiling; if it ever becomes a problem we'll wire an edge function to mop up.
+
+## Decommissioning (teardown)
+
+To bring the whole project down, merge the `chore/teardown-everything` branch to `main`. On merge the `Teardown (decommission)` workflow (`.github/workflows/teardown.yml`) runs once and:
+
+1. **Empties + deletes the `room-photos` storage bucket** via the Storage API. This needs a `SUPABASE_SERVICE_ROLE_KEY` secret on the `github-pages` environment. If it's not set the step is skipped — orphaned files vanish anyway when you delete the project (next point).
+2. **Applies `supabase/migrations/20260614000000_teardown.sql`** via `supabase db push`: unschedules the cleanup cron, drops every RPC function, drops all tables (`rooms`/`uploaders`/`photos`/`players`/`guesses`) with cascade, and drops the storage policies.
+3. **Deletes the published GitHub Pages site**. Uses `GITHUB_TOKEN` by default; if that lacks repo-admin rights, add a PAT with repo admin scope as a `GH_ADMIN_TOKEN` secret and re-run the workflow.
+
+This leaves an **empty Supabase project**, which you then delete by hand in the dashboard (Project Settings → General → Delete project) — that also clears any orphaned storage files. The teardown migration is idempotent (`drop ... if exists`), so re-running the workflow is safe.
